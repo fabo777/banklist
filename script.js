@@ -306,6 +306,12 @@ btnTransfer.addEventListener('click', function (e) {
   }
 });
 
+const newFeature = function () {
+  console.log('welcome to the aplication');
+};
+
+newFeature();
+
 btnLoan.addEventListener('click', function (e) {
   e.preventDefault();
 
