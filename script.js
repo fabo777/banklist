@@ -60,6 +60,7 @@ const btnTransfer = document.querySelector('.form__btn--transfer');
 const btnLoan = document.querySelector('.form__btn--loan');
 const btnClose = document.querySelector('.form__btn--close');
 const btnSort = document.querySelector('.btn--sort');
+const btnLogout = document.querySelector('.form__btn--logout');
 
 const inputLoginUsername = document.querySelector('.login__input--user');
 const inputLoginPin = document.querySelector('.login__input--pin');
@@ -69,6 +70,7 @@ const inputLoanAmount = document.querySelector('.form__input--loan-amount');
 const inputCloseUsername = document.querySelector('.form__input--user');
 const inputClosePin = document.querySelector('.form__input--pin');
 
+const hideLoginForm = document.querySelector('.login');
 /////////////////////////////////////////////////
 // Functions
 
@@ -93,7 +95,6 @@ const formatCur = function (value, locale, currency) {
 
 const displayMovements = function (acc, sort = false) {
   containerMovements.innerHTML = '';
-
   const movs = sort
     ? acc.movements.slice().sort((a, b) => a - b)
     : acc.movements;
@@ -157,6 +158,32 @@ const createUsernames = function (accs) {
 };
 createUsernames(accounts);
 
+function dateAndTimeout() {
+  labelWelcome.textContent = `Welcome back, ${
+    currentAccount.owner.split(' ')[0]
+  }`;
+
+  const now = new Date();
+  const options = {
+    hour: 'numeric',
+    minute: 'numeric',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+  };
+
+  labelDate.textContent = new Intl.DateTimeFormat(
+    currentAccount.locale,
+    options
+  ).format(now);
+  // Clear input fields
+  inputLoginUsername.value = inputLoginPin.value = '';
+  inputLoginPin.blur();
+  //timer
+  if (timer) clearInterval(timer);
+  timer = startLogOutTimer();
+}
+
 const updateUI = function (acc) {
   // Display movements
   displayMovements(acc);
@@ -174,15 +201,14 @@ const startLogOutTimer = function () {
     const sec = String(time % 60).padStart(2, 0);
 
     //in each call print the remaining time to UI
-
     labelTimer.textContent = `${min}:${sec}`;
 
     //when 0 sec ,stop timer and log out user
     if (time === 0) {
       clearInterval(timer);
       labelWelcome.textContent = 'Log in to start';
-
       containerApp.style.opacity = 0;
+      hideLoginForm.style.opacity = 100;
     }
     //decrese 1sec
     time--;
@@ -194,49 +220,47 @@ const startLogOutTimer = function () {
   const timer = setInterval(tick, 1000);
   return timer;
 };
+const generateLoginButton = () => {
+  btnLogin.addEventListener('click', function (e) {
+    // Prevent form from submitting
+    e.preventDefault();
 
-///////////////////////////////////////
-// Event handlers
+    currentAccount = accounts.find(
+      acc => acc.username === inputLoginUsername.value
+    );
+
+    if (currentAccount?.pin === +inputLoginPin.value) {
+      localStorage.setItem('username', inputLoginUsername.value);
+      localStorage.setItem('pin', inputLoginPin.value);
+      // Display UI and message
+      dateAndTimeout();
+      // Update UI
+      updateUI(currentAccount);
+      containerApp.style.opacity = 100;
+      hideLoginForm.style.opacity = 0;
+    }
+  });
+  return;
+};
+
 let currentAccount, timer;
-
-btnLogin.addEventListener('click', function (e) {
-  // Prevent form from submitting
-  e.preventDefault();
-
+if (localStorage.username) {
   currentAccount = accounts.find(
-    acc => acc.username === inputLoginUsername.value
+    acc =>
+      acc.username === localStorage.username && acc.pin === +localStorage.pin
   );
-
-  if (currentAccount?.pin === +inputLoginPin.value) {
-    // Display UI and message
-    labelWelcome.textContent = `Welcome back, ${
-      currentAccount.owner.split(' ')[0]
-    }`;
+  if (currentAccount) {
     containerApp.style.opacity = 100;
-
-    const now = new Date();
-    const options = {
-      hour: 'numeric',
-      minute: 'numeric',
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-    };
-
-    labelDate.textContent = new Intl.DateTimeFormat(
-      currentAccount.locale,
-      options
-    ).format(now);
-    // Clear input fields
-    inputLoginUsername.value = inputLoginPin.value = '';
-    inputLoginPin.blur();
-    //timer
-    if (timer) clearInterval(timer);
-    timer = startLogOutTimer();
-    // Update UI
     updateUI(currentAccount);
+    dateAndTimeout();
+    hideLoginForm.style.opacity = 0;
+  } else {
+    localStorage.clear();
+    generateLoginButton();
   }
-});
+} else {
+  generateLoginButton();
+}
 
 btnTransfer.addEventListener('click', function (e) {
   e.preventDefault();
@@ -255,11 +279,9 @@ btnTransfer.addEventListener('click', function (e) {
     // Doing the transfer
     currentAccount.movements.push(-amount);
     receiverAcc.movements.push(amount);
-
     //add transfer date
     currentAccount.movementsDates.push(new Date().toISOString());
     receiverAcc.movementsDates.push(new Date().toISOString());
-
     // Update UI
     updateUI(currentAccount);
     //reset timer
@@ -270,13 +292,11 @@ btnTransfer.addEventListener('click', function (e) {
 
 btnLoan.addEventListener('click', function (e) {
   e.preventDefault();
-
   const amount = +inputLoanAmount.value;
 
   if (amount > 0 && currentAccount.movements.some(mov => mov >= amount * 0.1)) {
     // Add movement
     currentAccount.movements.push(amount);
-
     //add loan date
     currentAccount.movementsDates.push(new Date().toISOString());
     // Update UI
@@ -301,17 +321,24 @@ btnClose.addEventListener('click', function (e) {
 
     // Delete account
     accounts.splice(index, 1);
-
     // Hide UI
     containerApp.style.opacity = 0;
+    hideLoginForm.style.opacity = 100;
   }
-
   inputCloseUsername.value = inputClosePin.value = '';
 });
 
 let sorted = false;
 btnSort.addEventListener('click', function (e) {
   e.preventDefault();
-  displayMovements(currentAccount.movements, !sorted);
+  displayMovements(currentAccount, !sorted);
   sorted = !sorted;
+});
+
+btnLogout.addEventListener('click', function (e) {
+  // e.preventDefault();
+  localStorage.clear();
+  containerApp.style.opacity = 0;
+  labelWelcome.textContent = 'Log in to get started';
+  hideLoginForm.style.opacity = 100;
 });
